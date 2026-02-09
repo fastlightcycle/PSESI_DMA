@@ -8,13 +8,28 @@
 
 #define MAX_JOBS 10
 
-typedef struct s_job {
-  int* src;
-  int* trg;
+#define RED_RDY 0x0000
+#define WRT_RDY 0x0001
+#define WRD_CFG 0x0010
+#define HLF_CFG 0x0100
+#define BYT_CFG 0x1000
+
+typedef struct s_tab {
+  uintptr_t src_stt;
+  uintptr_t src_end;
+  int sc_flag; // Status et config
   size_t size;
-  uintptr_t id;
+} tab;
+
+typedef struct s_job {
   struct s_job *prec;
   struct s_job *next;
+  int status;
+  tab* src;
+  tab* trg;
+  int src_stp; // Steps pour faire rotations
+  int trg_stp;
+  size_t size; // Nb elements
 } job;
 
 extern job jobs[MAX_JOBS];
