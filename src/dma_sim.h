@@ -7,4 +7,4 @@ job* DMA_prend();
 void DMA_sim();
 int DMA_fini(job* j);
 
-#endif
+#endif // DMA_SIM

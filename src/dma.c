@@ -2,6 +2,11 @@
 #include<stdio.h>
 #include<pthread.h>
 
+pthread_mutex_t mutex_free = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_pending = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_processing = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_done = PTHREAD_MUTEX_INITIALIZER;
+
 job jobs[MAX_JOBS];
 racine r;
 

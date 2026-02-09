@@ -8,11 +8,6 @@
 
 #define MAX_JOBS 10
 
-pthread_mutex_t mutex_free = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_pending = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_processing = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_done = PTHREAD_MUTEX_INITIALIZER;
-
 typedef struct s_job {
   int* src;
   int* trg;
