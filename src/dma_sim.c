@@ -33,12 +33,16 @@ job* DMA_prend() {
   return NULL;
 }
 
+
+extern volatile sig_atomic_t running; // Flag partagé 
+
 /*
  * Simulation du travail de la DMA
  */
+ 
 void DMA_sim() {
-  job* j;
-//  while(true) {
+  job* j; 
+  while(continuer) {
     j = DMA_prend();
     if(j) {
       for(int i = 0; i < j->size; i++) {
@@ -49,8 +53,12 @@ void DMA_sim() {
         fprintf(stderr, "ERROR: could not finish job\n");
       }
     }
-    // TODO Dormir sur adresse du 1er job de la list pending
-//  }
+
+    if(!r.pending){
+      sleep(&r.pending);
+    }
+  }
+  return ;
 }
 
 /*

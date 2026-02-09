@@ -1,10 +1,36 @@
 #include"dma.h"
 #include"dma_sim.h"
 #include<stdio.h>
+#include<unistd.h>
+#include<signal.h>
+#include<pthread.h>
+
 
 #define N 10
 
+volatile sig_atomic_t running = 1;
+
+void handle_sigint(int sig){
+  running = 0; 
+}
+
+
+
+
+
+
+
+
+
+
 int main (int argc, char* argv[]) {
+
+  struct sigaction sa;
+  sa.sa_handler = &handler_sigint;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sigaction(SIGINT, &sa, NULL);
+
   DMA_init();
   show_jobs();
 
@@ -24,8 +50,10 @@ int main (int argc, char* argv[]) {
 
   DMA_sim();
   show_jobs();
+  wait(10);
   DMA_sim();
   show_jobs();
+  wait(10);
 
   DMA_done(job1_id);
   for(int i = 0; i < N; i++) {
