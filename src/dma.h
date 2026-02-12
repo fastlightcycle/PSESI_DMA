@@ -8,15 +8,26 @@
 
 #define MAX_JOBS 10
 
-#define RED_RDY 0x0000
-#define WRT_RDY 0x0001
-#define WRD_CFG 0x0010
-#define HLF_CFG 0x0100
-#define BYT_CFG 0x1000
+#define RED_RDY 0x00001
+#define WRT_RDY 0x00010
+#define WRD_CFG 0x00100
+#define HLF_CFG 0x01000
+#define BYT_CFG 0x10000
+
+#define ERROR 0x0000
+#define FREE 0x0001
+#define PENDING 0x0010
+#define ONGOING 0x0100
+#define DONE 0x1000
+
+extern pthread_mutex_t mutex_free;
+extern pthread_mutex_t mutex_pending;
+extern pthread_mutex_t mutex_processing;
+extern pthread_mutex_t mutex_done;
 
 typedef struct s_tab {
-  uintptr_t src_stt;
-  uintptr_t src_end;
+  uintptr_t stt;
+  uintptr_t end;
   int sc_flag; // Status et config
   size_t size;
 } tab;
@@ -43,11 +54,14 @@ typedef struct s_racine {
 
 extern racine r;
 
+tab* create_tab(int* array, size_t size, int flag);
+
 int remove_job(job* j, job **list);
 int add_job(job* j, job **list);
 
-void DMA_init();
-uintptr_t DMA_job(tab* src, tab* trg, size_t size);
+int DMA_init();
+void DMA_cleanup();
+uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t size);
 uintptr_t DMA_done(uintptr_t id);
 
 void show_jobs();
