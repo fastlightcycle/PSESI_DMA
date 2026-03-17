@@ -1,0 +1,149 @@
+
+-- ### -------------------------------------------------------------- ###
+-- # file	: dma_64.vbe						#
+-- # date	: Feb 20 2026						#
+-- # version	: v2.0							#
+-- #									#
+-- # origin	: this description has been developed at LIP6		#
+-- #		  laboratory, University Pierre et Marie Curie		#
+-- #		  4 Place Jussieu 75252 Paris Cedex 05 - France		#
+-- #									#
+-- # descr.	: data flow description of a DMA controller		#
+-- #									#
+-- #		  Here are some of the characteristics :		#
+-- #									#
+-- # authors	: Pirouz Bazargan Sabet					#
+-- ### -------------------------------------------------------------- ###
+
+entity DM1_64 is
+
+port
+  (
+  signal   CK         : in    bit                           ;-- clock
+  signal   RESET_N    : in    bit                           ;-- reset
+
+  signal   PI_RESETN  : in    bit                           ;-- reset
+  signal   PI_REQ     : out   bit                           ;-- request
+  signal   PI_GNT     : in    bit                           ;-- grant
+  signal   PI_A       : inout mux_vector ( 31 downto  2) bus;-- address
+  signal   PI_OPC     : inout mux_vector (  3 downto  0) bus;-- opcod
+  signal   PI_READ    : inout mux_bit                    bus;-- read
+  signal   PI_LOCK    : out   mux_bit                    bus;-- lock
+  signal   PI_D       : inout bit_vector ( 31 downto  0) bus;-- data
+  signal   PI_ACK     : inout bit_vector (  2 downto  0) bus;-- ack
+  signal   PI_ACYC    : in    bit                           ;-- addr cyc
+  signal   PI_TOUT    : in    bit                           ;-- time out
+
+  signal   VDD        : in    bit                           ;
+  signal   VSS        : in    bit
+  );
+
+end DM1_64 ;
+
+--
+-- ### -------------------------------------------------------------- ###
+-- #   description - contains the following sections :			#
+-- #									#
+-- #     - internal signal and register declarations			#
+-- #     - constant declarations					#
+-- #     - signals and registers description				#
+-- #									#
+-- #   Each signal or register is suffixed by two letters.		#
+-- #									#
+-- #   The first letter identifies the type of the signal:		#
+-- #     - R : a register sampling on the clock's rising  edge		#
+-- #     - F : a register sampling on the clock's falling edge		#
+-- #     - S : a signal							#
+-- #									#
+-- #   The second letter specifies the part that assigns the signal:	#
+-- #     - C : Main                Controller				#
+-- #     - I : Interconnect        Controller				#
+-- #     - S : Snoopy							#
+-- #     - X : Undefined						#
+-- #									#
+-- #   The cache has a sihngle interfaces :				#
+-- #									#
+-- #     o Interconnect interface (PiBus) :				#
+-- #       defines how the cache can access the system bus.		#
+-- ### -------------------------------------------------------------- ###
+
+architecture BEHAVIOURAL of DMA_64 is
+
+	-- ### ------------------------------------------------------ ###
+	-- #   signals							#
+	-- ### ------------------------------------------------------ ###
+
+  signal   CK_SX      : bit                                ;-- internal clk
+
+  signal   RSTSY0_RX  : reg_bit                    register;-- sync
+  signal   RSTSYN_RX  : reg_bit                    register;-- sync
+  signal   RESET_RX   : reg_bit                    register;-- reset reg
+
+  signal   RESET_SC   : bit                                ;-- reset
+  signal   RESET_SI   : bit                                ;-- reset
+  signal   RESET_SS   : bit                                ;-- reset
+
+--
+	-- ### ------------------------------------------------------ ###
+	-- #   PiBus constants						#
+	-- ### ------------------------------------------------------ ###
+
+  constant pi_opc_np0 : bit_vector (  3 downto  0) := B"0000"    ;-- no oper
+  constant pi_opc_np1 : bit_vector (  3 downto  0) := B"0001"    ;-- no oper
+  constant pi_opc_wdu : bit_vector (  3 downto  0) := B"0010"    ;-- word
+  constant pi_opc_wdc : bit_vector (  3 downto  0) := B"0011"    ;-- w cntl
+  constant pi_opc_hw0 : bit_vector (  3 downto  0) := B"1000"    ;-- half 0
+  constant pi_opc_hw1 : bit_vector (  3 downto  0) := B"1010"    ;-- half 1
+  constant pi_opc_by0 : bit_vector (  3 downto  0) := B"1100"    ;-- byte 0
+  constant pi_opc_by1 : bit_vector (  3 downto  0) := B"1101"    ;-- byte 1
+  constant pi_opc_by2 : bit_vector (  3 downto  0) := B"1110"    ;-- byte 2
+  constant pi_opc_by3 : bit_vector (  3 downto  0) := B"1111"    ;-- byte 3
+  constant pi_opc_inv : bit_vector (  3 downto  0) := B"1001"    ;-- inval
+ 
+  constant pi_red_red : bit                        := B"1"       ;-- read
+  constant pi_red_wrt : bit                        := B"0"       ;-- write
+
+  constant pi_ack_wat : bit_vector (  2 downto  0) := B"000"     ;-- wait
+  constant pi_ack_rdm : bit_vector (  2 downto  0) := B"001"     ;-- rdy-more
+  constant pi_ack_rdy : bit_vector (  2 downto  0) := B"011"     ;-- rdy
+  constant pi_ack_err : bit_vector (  2 downto  0) := B"010"     ;-- error
+  constant pi_ack_rtr : bit_vector (  2 downto  0) := B"100"     ;-- retract
+  constant pi_ack_spt : bit_vector (  2 downto  0) := B"110"     ;-- split
+  constant pi_ack_unc : bit_vector (  2 downto  0) := B"101"     ;-- rdy unc
+
+	-- ### ------------------------------------------------------ ###
+	-- #   zero and one						#
+	-- ### ------------------------------------------------------ ###
+
+  constant zro_4      : bit_vector (  3 downto  0) := X"0"                   ;
+  constant zro_8      : bit_vector (  7 downto  0) := X"00"                  ;
+  constant zro_16     : bit_vector ( 15 downto  0) := X"0000"                ;
+  constant zro_32     : bit_vector ( 31 downto  0) := X"00000000"            ;
+  constant zro_64     : bit_vector ( 63 downto  0) := X"00000000_00000000"   ;
+  constant zro_68     : bit_vector ( 67 downto  0) := X"0_00000000_00000000" ;
+
+  constant one_4      : bit_vector (  3 downto  0) := X"f"                   ;
+  constant one_32     : bit_vector ( 31 downto  0) := X"ffffffff"            ;
+  constant one_64     : bit_vector ( 63 downto  0) := X"ffffffff_ffffffff"   ;
+
+--
+begin
+
+	-- ### ------------------------------------------------------ ###
+	-- #   check power supplies					#
+	-- ### ------------------------------------------------------ ###
+
+CHECK_POWER : assert  ((VDD = '1') and (VSS = '0'))
+              report  "missing power supply on DMA"
+              severity WARNING;
+
+	-- ### ------------------------------------------------------ ###
+	-- #   internal clock						#
+	-- ### ------------------------------------------------------ ###
+
+CK_SX      <=  CK ;
+
+	-- ### ------------------------------------------------------ ###
+	-- ### ------------------------------------------------------ ###
+
+end BEHAVIOURAL ;

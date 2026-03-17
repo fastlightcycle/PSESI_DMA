@@ -1,0 +1,259 @@
+
+-- ### -------------------------------------------------------------- ###
+-- # file	: dma_64.vbe						#
+-- # date	: Feb 20 2026						#
+-- # version	: v2.0							#
+-- #									#
+-- # origin	: this description has been developed at LIP6		#
+-- #		  laboratory, University Pierre et Marie Curie		#
+-- #		  4 Place Jussieu 75252 Paris Cedex 05 - France		#
+-- #									#
+-- # descr.	: data flow description of a DMA controller		#
+-- #									#
+-- #		  Here are some of the characteristics :		#
+-- #									#
+-- # authors	: Pirouz Bazargan Sabet					#
+-- ### -------------------------------------------------------------- ###
+
+entity DM1_64 is
+
+port
+  (
+  signal   CK         : in    bit                           ;-- clock
+  signal   RESET_N    : in    bit                           ;-- reset
+
+  signal   PI_RESETN  : in    bit                           ;-- reset
+  signal   PI_REQ     : out   bit                           ;-- request
+  signal   PI_GNT     : in    bit                           ;-- grant
+  signal   PI_A       : inout mux_vector ( 31 downto  2) bus;-- address
+  signal   PI_OPC     : inout mux_vector (  3 downto  0) bus;-- opcod
+  signal   PI_READ    : inout mux_bit                    bus;-- read
+  signal   PI_LOCK    : out   mux_bit                    bus;-- lock
+  signal   PI_SEL     : in    bit                           ;-- select
+  signal   PI_D       : inout mux_vector ( 31 downto  0) bus;-- data
+  signal   PI_ACK     : inout mux_vector (  2 downto  0) bus;-- ack
+  signal   PI_ACYC    : in    bit                           ;-- addr cyc
+  signal   PI_TOUT    : in    bit                           ;-- time out
+
+  signal   VDD        : in    bit                           ;
+  signal   VSS        : in    bit
+  );
+
+end DM1_64 ;
+
+--
+-- ### -------------------------------------------------------------- ###
+-- #   description - contains the following sections :			#
+-- #									#
+-- #     - internal signal and register declarations			#
+-- #     - constant declarations					#
+-- #     - signals and registers description				#
+-- #									#
+-- #   Each signal or register is suffixed by two letters.		#
+-- #									#
+-- #   The first letter identifies the type of the signal:		#
+-- #     - R : a register sampling on the clock's rising  edge		#
+-- #     - F : a register sampling on the clock's falling edge		#
+-- #     - S : a signal							#
+-- #									#
+-- #   The second letter specifies the part that assigns the signal:	#
+-- #     - C : Main                Controller				#
+-- #     - I : Interconnect        Controller				#
+-- #     - S : Snoopy							#
+-- #     - X : Undefined						#
+-- #									#
+-- #   The cache has a sihngle interfaces :				#
+-- #									#
+-- #     o Interconnect interface (PiBus) :				#
+-- #       defines how the cache can access the system bus.		#
+-- ### -------------------------------------------------------------- ###
+
+architecture BEHAVIOURAL of DMA_64 is
+
+	-- ### ------------------------------------------------------ ###
+	-- #   signals							#
+	-- ### ------------------------------------------------------ ###
+
+  signal   CK_SX      : bit                                ;-- internal clk
+
+  signal   RSTSY0_RX  : reg_bit                    register;-- sync
+  signal   RSTSYN_RX  : reg_bit                    register;-- sync
+  signal   RESET_RX   : reg_bit                    register;-- reset reg
+
+  signal   RESET_SC   : bit                                ;-- reset
+  signal   RESET_SI   : bit                                ;-- reset
+  signal   RESET_SS   : bit                                ;-- reset
+  
+  signal   BASADR_RI  : reg_vector ( 31 downto  0) register;
+  signal   BASVLD_RI  : reg_bit                    register;
+  signal   SEL_RI     : reg_bit                    register;
+  signal   WRT_RI     : reg_bit                    register;
+  signal   WDU_RI     : reg_bit                    register;
+
+  signal   ADRADR_RS  : reg_vector ( 31 downto  0) register;
+  signal   ADRDAT_RS  : reg_vector ( 31 downto  0) register;
+  signal   DATDAT_RS  : reg_vector ( 31 downto  0) register;
+  signal   VLDADR_SS  : bit                                ;
+  signal   VLDDAT_SS  : bit                                ;
+  signal   VLDADR_RS  : reg_bit                    register;
+  signal   VLDDAT_RS  : reg_bit                    register;
+
+--
+	-- ### ------------------------------------------------------ ###
+	-- #   PiBus constants						#
+	-- ### ------------------------------------------------------ ###
+
+  constant pi_opc_np0 : bit_vector (  3 downto  0) := B"0000"    ;-- no oper
+  constant pi_opc_np1 : bit_vector (  3 downto  0) := B"0001"    ;-- no oper
+  constant pi_opc_wdu : bit_vector (  3 downto  0) := B"0010"    ;-- word
+  constant pi_opc_wdc : bit_vector (  3 downto  0) := B"0011"    ;-- w cntl
+  constant pi_opc_hw0 : bit_vector (  3 downto  0) := B"1000"    ;-- half 0
+  constant pi_opc_hw1 : bit_vector (  3 downto  0) := B"1010"    ;-- half 1
+  constant pi_opc_by0 : bit_vector (  3 downto  0) := B"1100"    ;-- byte 0
+  constant pi_opc_by1 : bit_vector (  3 downto  0) := B"1101"    ;-- byte 1
+  constant pi_opc_by2 : bit_vector (  3 downto  0) := B"1110"    ;-- byte 2
+  constant pi_opc_by3 : bit_vector (  3 downto  0) := B"1111"    ;-- byte 3
+  constant pi_opc_inv : bit_vector (  3 downto  0) := B"1001"    ;-- inval
+ 
+  constant pi_red_red : bit                        := B"1"       ;-- read
+  constant pi_red_wrt : bit                        := B"0"       ;-- write
+
+  constant pi_ack_wat : bit_vector (  2 downto  0) := B"000"     ;-- wait
+  constant pi_ack_rdm : bit_vector (  2 downto  0) := B"001"     ;-- rdy-more
+  constant pi_ack_rdy : bit_vector (  2 downto  0) := B"011"     ;-- rdy
+  constant pi_ack_err : bit_vector (  2 downto  0) := B"010"     ;-- error
+  constant pi_ack_rtr : bit_vector (  2 downto  0) := B"100"     ;-- retract
+  constant pi_ack_spt : bit_vector (  2 downto  0) := B"110"     ;-- split
+  constant pi_ack_unc : bit_vector (  2 downto  0) := B"101"     ;-- rdy unc
+
+	-- ### ------------------------------------------------------ ###
+	-- #   offsets and masks					#
+	-- ### ------------------------------------------------------ ###
+
+  constant adr_mask   : bit_vector ( 31 downto  0) := X"ffffffe0"  ;-- 
+
+  constant pnd_adr_of : bit_vector (  4 downto  0) := B"01100"     ;-- pnd adr
+  constant pnd_lck_of : bit_vector (  4 downto  0) := B"10000"     ;-- pnd adr
+  constant don_lck_of : bit_vector (  4 downto  0) := B"11000"     ;-- pnd adr
+
+	-- ### ------------------------------------------------------ ###
+	-- #   zero and one						#
+	-- ### ------------------------------------------------------ ###
+
+  constant zro_2      : bit_vector (  1 downto  0) := B"00"                  ;
+  constant zro_4      : bit_vector (  3 downto  0) := X"0"                   ;
+  constant zro_8      : bit_vector (  7 downto  0) := X"00"                  ;
+  constant zro_16     : bit_vector ( 15 downto  0) := X"0000"                ;
+  constant zro_32     : bit_vector ( 31 downto  0) := X"00000000"            ;
+  constant zro_64     : bit_vector ( 63 downto  0) := X"00000000_00000000"   ;
+  constant zro_68     : bit_vector ( 67 downto  0) := X"0_00000000_00000000" ;
+
+  constant one_4      : bit_vector (  3 downto  0) := X"f"                   ;
+  constant one_32     : bit_vector ( 31 downto  0) := X"ffffffff"            ;
+  constant one_64     : bit_vector ( 63 downto  0) := X"ffffffff_ffffffff"   ;
+
+begin
+
+	-- ### ------------------------------------------------------ ###
+	-- #   check power supplies					#
+	-- ### ------------------------------------------------------ ###
+
+CHECK_POWER : assert  ((VDD = '1') and (VSS = '0'))
+              report  "missing power supply on DMA"
+              severity WARNING;
+
+	-- ### ------------------------------------------------------ ###
+	-- #   internal clock						#
+	-- ### ------------------------------------------------------ ###
+
+CK_SX      <=  CK ;
+
+	-- ### ------------------------------------------------------ ###
+	-- #   Interconnect Controller					#
+	-- ### ------------------------------------------------------ ###
+
+BASVLD_SS  <= SEL_RI and WRT_RI and WDU_RI;  
+
+ACKRDY_SS  <= WRT_RI and WDU_RI;
+
+	-- ### ------------------------------------------------------ ###
+	-- #   Snoopy							#
+	-- #   Catching the transfer					#
+	-- ### ------------------------------------------------------ ###
+
+VALADR_SS  <= PI_ACYC when (PI_READ = pi_red_wrt and PI_OPC = pi_opc_wdu) else
+              '0';
+
+DATRDY_SS  <= '1' when (PI_ACK = pi_ack_rdy) else
+              '1' when (PI_ACK = pi_ack_rdm) else
+              '1' when (PI_ACK = pi_ack_unc) else
+              '0';
+
+VALDAT_SS  <= VALADR_RS and DATRDY_SS;
+
+	-- ### ------------------------------------------------------ ###
+	-- #   Snoopy							#
+	-- #   Address comparison					#
+	-- ### ------------------------------------------------------ ###
+
+CPBAS_SS   <= (ADRDAT_RS xor BASADR_RI) and bas_mask;
+EQBAS_SS   <= '1' when (CPADR_SS = zro_32) else '0';
+MCHBAS_SS  <= EQBAS_SS and BASVLD_RI and VLDDATA_RS;
+
+ADROFS_SS  <= ADRDAT_RS ( 4 downto 0);
+
+PLCKWE_SS  <= MCHBAS_SS when (ADROFS_SS = pnd_lck_of) else '0';
+PADRWE_SS  <= MCHBAS_SS when (ADROFS_SS = pnd_adr_of) else '0';
+DLCKWE_SS  <= MCHBAS_SS when (ADROFS_SS = don_lck_of) else '0';
+
+	-- ### ------------------------------------------------------ ###
+	-- #   Interconnect Controller registers			#
+	-- ### ------------------------------------------------------ ###
+
+INTERCONNECT_CONTROLLER : block (CK_SX = '1' and not CK_SX'STABLE)
+begin
+
+  SEL_RI     <= guarded '0'   when (RESET_SI = '1') else 
+                        '0'   when (PI_ACYC  = '0') else PI_SEL;
+  WDU_RI     <= guarded '0'   when (RESET_SI = '1') else 
+                        '0'   when (PI_ACYC  = '0') else
+                        '1'   when (PI_OPC   = pi_opc_wdu) else '0';
+  WRT_RI     <= guarded '0'   when (RESET_SI = '1') else 
+                        '0'   when (PI_ACYC  = '0') else not PI_READ;
+
+  BASADR_RS  <= guarded PI_D;
+  BASVAL_RS  <= guarded '0' when (RESET_SI = '1') else BASVLD_SS;
+
+end block;
+ 
+	-- ### ------------------------------------------------------ ###
+	-- #   Snoopy registers						#
+	-- ### ------------------------------------------------------ ###
+
+SNOOPY : block (CK_SX = '1' and not CK_SX'STABLE)
+begin
+
+  VALADR_RS  <= guarded '0' when (RESET_SS = '1') else VLDADR_SS;
+  VALDAT_RS  <= guarded '0' when (RESET_SS = '1') else VLDDAT_SS;
+
+  ADRADR_RS  <= guarded PI_A & zro_2;
+  ADRDAT_RS  <= guarded ADRADR_RS;
+  DATDAT_RS  <= guarded PI_D;
+
+  PNDLCK_RS  <= guarded '0' when (RESET_SS = '1') else PNDLCK_SS;
+  DONLCK_RS  <= guarded '0' when (RESET_SS = '1') else DONLCK_SS;
+
+  PNDADR_RS  <= guarded zro_32 when (RESET_SS = '1') else PNDADR_SS;
+
+end block;
+ 
+	-- ### ------------------------------------------------------ ###
+	-- #   Assign Outputs - Interconnect Controller			#
+	-- ### ------------------------------------------------------ ###
+
+PI_ACKNOWLEDGE : block (PI_SEL = '1')
+begin
+  PI_ACK     <= guarded pi_ack_rdy when (ACKRDY_SI = '1') else pi_ack_err;
+end block;
+
+end BEHAVIOURAL ;
