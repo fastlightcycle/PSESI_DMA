@@ -181,7 +181,7 @@ ACKRDY_SS  <= WRT_RI and WDU_RI;
 	-- #   Catching the transfer					#
 	-- ### ------------------------------------------------------ ###
 
-VALADR_SS  <= PI_ACYC when (PI_READ = pi_red_wrt and PI_OPC = pi_opc_wdu) else
+VLDADR_SS  <= PI_ACYC when (PI_READ = pi_red_wrt and PI_OPC = pi_opc_wdu) else
               '0';
 
 DATRDY_SS  <= '1' when (PI_ACK = pi_ack_rdy) else
@@ -189,7 +189,7 @@ DATRDY_SS  <= '1' when (PI_ACK = pi_ack_rdy) else
               '1' when (PI_ACK = pi_ack_unc) else
               '0';
 
-VALDAT_SS  <= VALADR_RS and DATRDY_SS;
+VLDDAT_SS  <= VLDADR_RS and DATRDY_SS;
 
 	-- ### ------------------------------------------------------ ###
 	-- #   Snoopy							#
@@ -222,7 +222,7 @@ begin
                         '0'   when (PI_ACYC  = '0') else not PI_READ;
 
   BASADR_RS  <= guarded PI_D;
-  BASVAL_RS  <= guarded '0' when (RESET_SI = '1') else BASVLD_SS;
+  BASVLD_RS  <= guarded '0' when (RESET_SI = '1') else BASVLD_SS;
 
 end block;
  
@@ -233,8 +233,8 @@ end block;
 SNOOPY : block (CK_SX = '1' and not CK_SX'STABLE)
 begin
 
-  VALADR_RS  <= guarded '0' when (RESET_SS = '1') else VLDADR_SS;
-  VALDAT_RS  <= guarded '0' when (RESET_SS = '1') else VLDDAT_SS;
+  VLDADR_RS  <= guarded '0' when (RESET_SS = '1') else VLDADR_SS;
+  VLDDAT_RS  <= guarded '0' when (RESET_SS = '1') else VLDDAT_SS;
 
   ADRADR_RS  <= guarded PI_A & zro_2;
   ADRDAT_RS  <= guarded ADRADR_RS;
