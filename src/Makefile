@@ -3,7 +3,7 @@ CC = gcc
 
 PROGRAMS = sim_dma # tests
 
-.PHONY:	all clean #Commande 'make' rettrouve donc 'all' en premier
+.PHONY:	all clean
 
 all: $(PROGRAMS)
 

@@ -5,7 +5,6 @@
 
 pthread_mutex_t mutex_free = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_pending = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_processing = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_done = PTHREAD_MUTEX_INITIALIZER;
 
 job jobs[MAX_JOBS];
@@ -19,21 +18,13 @@ pthread_t preneur_job;
 int DMA_init() {
   
   r.pending = NULL;
-  r.processing = NULL;
   r.done = NULL;
   
   // Toutes les cases du tableau de jobs sont vides au début
-  job* j = &jobs[0];
-
-  r.free = j;
-  j->prec = NULL;
-  for(int i = 1; i < MAX_JOBS; i++) {
-    j->status = FREE;
-    j->next = &(jobs[i]);
-    j = j->next;
-    j->prec = &jobs[i-1];
+  for(int i = 0; i < MAX_JOBS; i++) {
+    (jobs[i]).status = FREE;
+    add_free(&(jobs[i]));
   }
-  j->next = NULL;
 
   if (pthread_create(&preneur_job, NULL, DMA_sim, NULL)){     
     fprintf(stderr, "DMA thread could not be created\n");
@@ -63,15 +54,9 @@ uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t size) {
   }
 
   pthread_mutex_lock(&mutex_free);
-  job* j = r.free;
+  job* j = remove_free_head();
   if (!j) {
     fprintf(stderr, "WARNING: Job list is full!\n");
-    pthread_mutex_unlock(&mutex_free);
-    return 0;
-  }
-
-  if(remove_job(j, &(r.free))) {
-    fprintf(stderr, "ERROR: could not remove job from free list\n");
     pthread_mutex_unlock(&mutex_free);
     return 0;
   }
@@ -85,7 +70,7 @@ uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t size) {
   j->size = size;
 
   pthread_mutex_lock(&mutex_pending);
-  if(add_job(j, &(r.pending))) {
+  if(add_pending(j)) {
     fprintf(stderr, "ERROR: could not add job to pending list\n");
     pthread_mutex_unlock(&mutex_pending);
     return 0;
@@ -100,12 +85,12 @@ uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t size) {
  * Exécuté par l'OS après le syscall de DMA_done
  * Non bloquante
  */
-uintptr_t DMA_done(uintptr_t id) {
+int DMA_done(uintptr_t id) {
   job* j = (job*)id;
 
   if(j->status == DONE) {
     pthread_mutex_lock(&mutex_done);
-    if(remove_job(j, &(r.done))) {
+    if(remove_done(j)) {
       fprintf(stderr, "ERROR: could not remove job from done list\n");
       pthread_mutex_unlock(&mutex_done);
       return 0;
@@ -115,14 +100,14 @@ uintptr_t DMA_done(uintptr_t id) {
     j->status = FREE;
 
     pthread_mutex_lock(&mutex_free);
-    if(add_job(j, &(r.free))) {
+    if(add_free(j)) {
       fprintf(stderr, "ERROR: could not add job to free list\n");
       pthread_mutex_unlock(&mutex_free);
       return 0;
     }
     pthread_mutex_unlock(&mutex_free);
     
-    return (uintptr_t)j;
+    return 1;
   }
 
   fprintf(stderr, "WARNING: Job not found in DMA_done\n");
@@ -148,34 +133,98 @@ tab* create_tab(int* array, size_t size, int flag) {
 }
 
 /*
- * Ajoute le job en tete de la liste
- * Retourne 0 si réussi, -1 sinon
+ * Ajout d'un job dans la liste free
+ * Ajout en tete dans une liste simplement chaînée
  */
-int add_job(job* j, job **list) {
-  if(!j || !list) {
+int add_free(job* j) {
+  if(!j) {
     return -1;
   }
 
-  if(*list) {
-    (*list)->prec = j;
-  }
-  j->next = *list;
-  *list = j;
+  j->prec = NULL;
+  j->next = r.free;
+  r.free = j;
 
   return 0;
 }
 
 /*
- * Retire job de la liste
- * Retourne 0 si réussi, -1 sinon
+ * Retire job en tete de la liste free
  */
-int remove_job(job* j, job **list) {
-  if(!j || !list) {
+job * remove_free_head() {
+  job * j = r.free;
+
+  if(j) {
+    r.free = j->next;
+  }
+
+  return j;
+}
+
+/*
+ * Ajout d'un job dans la liste done
+ * Ajout en queue dans une liste circulaire simplement chaînée
+ */
+int add_pending(job* j) {
+  if(!j) {
     return -1;
   }
 
-  if(*list == j) {
-    *list = j->next;
+  if(r.pending) {
+    ((r.pending)->prec)->next = j;
+    (r.pending)->prec = j;
+  } else {
+    r.pending = j;
+    j->prec = j;
+  }
+  j->next = NULL;
+
+  return 0;
+}
+
+/*
+ * Retire job en tete de la liste pending
+ */
+job * remove_pending_head() {
+  job* j = r.pending;
+  
+  if(j) {
+    if(j->next) {
+      (j->next)->prec = j->prec;
+    }
+    r.pending = j->next;
+  }
+
+  return j;
+}
+
+/*
+ * Ajout d'un job dans la liste done
+ * Ajout en tete dans une liste doublement chaînée
+ */
+int add_done(job* j) {
+  if(!j) {
+    return -1;
+  }
+
+  if(r.done) {
+    (r.done)->prec = j;
+  }
+  j->next = r.done;
+  r.done = j;
+  return 0;
+}
+
+/*
+ * Retire job de la liste done
+ */
+int remove_done(job* j) {
+  if(!j) {
+    return -1;
+  }
+
+  if(r.done == j) {
+    r.done = j->next;
   } else {
     (j->prec)->next = j->next;
   }
@@ -188,7 +237,7 @@ int remove_job(job* j, job **list) {
 }
 
 /*
- * Affiche l'état des 4 listes de jobs sur le terminal
+ * Affiche l'état des 3 listes de jobs sur le terminal
  */
 void show_jobs(){
   printf("Jobs status:\n");
@@ -212,16 +261,6 @@ void show_jobs(){
     j = j->next;
   }
   pthread_mutex_unlock(&mutex_pending);
-  printf("\n");
-
-  printf("\tProcessing jobs:");
-  pthread_mutex_lock(&mutex_processing);
-  j = r.processing;
-  while(j) {
-    printf(" [%ld]", (uintptr_t)j);
-    j = j->next;
-  }
-  pthread_mutex_unlock(&mutex_processing);
   printf("\n");
 
   printf("\tDone jobs:");

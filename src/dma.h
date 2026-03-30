@@ -14,15 +14,13 @@
 #define HLF_CFG 0x01000
 #define BYT_CFG 0x10000
 
-#define ERROR 0x0000
-#define FREE 0x0001
-#define PENDING 0x0010
-#define ONGOING 0x0100
-#define DONE 0x1000
+#define ERROR   0x0001
+#define FREE    0x0010
+#define PENDING 0x0100
+#define DONE    0x1000
 
 extern pthread_mutex_t mutex_free;
 extern pthread_mutex_t mutex_pending;
-extern pthread_mutex_t mutex_processing;
 extern pthread_mutex_t mutex_done;
 
 typedef struct s_tab {
@@ -48,7 +46,6 @@ extern job jobs[MAX_JOBS];
 typedef struct s_racine {
   job* pending;
   job* free;
-  job* processing;
   job* done;
 } racine;
 
@@ -56,13 +53,17 @@ extern racine r;
 
 tab* create_tab(int* array, size_t size, int flag);
 
-int remove_job(job* j, job **list);
-int add_job(job* j, job **list);
+int add_free(job* j);
+job * remove_free_head();
+int add_pending(job* j);
+job * remove_pending_head();
+int add_done(job* j);
+int remove_done(job* j);
 
 int DMA_init();
 void DMA_cleanup();
 uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t size);
-uintptr_t DMA_done(uintptr_t id);
+int DMA_done(uintptr_t id);
 
 void show_jobs();
 
