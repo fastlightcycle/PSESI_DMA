@@ -85,20 +85,33 @@ architecture BEHAVIOURAL of DMA_64 is
   signal   RESET_SS   : bit                                ;-- reset
   
   signal   BASADR_RI  : reg_vector ( 31 downto  0) register;
+  signal   BASVLD_SI  : bit                                ;
   signal   BASVLD_RI  : reg_bit                    register;
   signal   SEL_RI     : reg_bit                    register;
   signal   WRT_RI     : reg_bit                    register;
   signal   WDU_RI     : reg_bit                    register;
+  signal   ACKRDY_SI  : bit                                ;
+  signal   ACKEN_SI   : bit                                ;
 
   signal   ADRADR_RS  : reg_vector ( 31 downto  0) register;
   signal   ADRDAT_RS  : reg_vector ( 31 downto  0) register;
   signal   DATDAT_RS  : reg_vector ( 31 downto  0) register;
   signal   VLDADR_SS  : bit                                ;
+  signal   DATRDY_SS  : bit                                ;
   signal   VLDDAT_SS  : bit                                ;
   signal   VLDADR_RS  : reg_bit                    register;
   signal   VLDDAT_RS  : reg_bit                    register;
+  signal   CPBAS_SS   : bit_vector ( 31 downto  0)         ;
+  signal   EQBAS_SS   : bit                                ;
+  signal   MCHBAS_SS  : bit                                ;
+  signal   ADROFS_SS  : bit_vector (  4 downto  0)         ;
+  signal   PLCKWE_SS  : bit                                ;
+  signal   PADRWE_SS  : bit                                ;
+  signal   DLCKWE_SS  : bit                                ;
+  signal   PNDLCK_SS  : bit_vector ( 31 downto  0)         ;
+  signal   PNDADR_SS  : bit_vector ( 31 downto  0)         ;
+  signal   DONLCK_SS  : bit_vector ( 31 downto  0)         ;
 
---
 	-- ### ------------------------------------------------------ ###
 	-- #   PiBus constants						#
 	-- ### ------------------------------------------------------ ###
@@ -169,12 +182,20 @@ CHECK_POWER : assert  ((VDD = '1') and (VSS = '0'))
 CK_SX      <=  CK ;
 
 	-- ### ------------------------------------------------------ ###
-	-- #   Interconnect Controller					#
+	-- #   DMA Controller 					        #
 	-- ### ------------------------------------------------------ ###
 
-BASVLD_SS  <= SEL_RI and WRT_RI and WDU_RI;  
 
-ACKRDY_SS  <= WRT_RI and WDU_RI;
+
+	-- ### ------------------------------------------------------ ###
+	-- #   Interconnect Controller 					#
+        -- #   Slave                                                    #
+	-- ### ------------------------------------------------------ ###
+
+BASVLD_SI  <= SEL_RI and WRT_RI and WDU_RI;  
+
+ACKRDY_SI  <= WRT_RI and WDU_RI;
+ACKEN_SI   <= SEL_RI;
 
 	-- ### ------------------------------------------------------ ###
 	-- #   Snoopy							#
@@ -207,22 +228,31 @@ PADRWE_SS  <= MCHBAS_SS when (ADROFS_SS = pnd_adr_of) else '0';
 DLCKWE_SS  <= MCHBAS_SS when (ADROFS_SS = don_lck_of) else '0';
 
 	-- ### ------------------------------------------------------ ###
+	-- #   Snoopy							#
+	-- #   Register values  					#
+	-- ### ------------------------------------------------------ ###
+
+PNDLCK_SS  <= DATDAT_RS when (PLCKWE_SS = '1') else PNDLCK_RS;
+DONLCK_SS  <= DATDAT_RS when (DLCKWE_SS = '1') else DONLCK_RS;
+PNDADR_SS  <= DATDAT_RS when (PADRWE_SS = '1') else PNDADR_RS;
+
+	-- ### ------------------------------------------------------ ###
 	-- #   Interconnect Controller registers			#
 	-- ### ------------------------------------------------------ ###
 
 INTERCONNECT_CONTROLLER : block (CK_SX = '1' and not CK_SX'STABLE)
 begin
 
-  SEL_RI     <= guarded '0'   when (RESET_SI = '1') else 
-                        '0'   when (PI_ACYC  = '0') else PI_SEL;
-  WDU_RI     <= guarded '0'   when (RESET_SI = '1') else 
-                        '0'   when (PI_ACYC  = '0') else
-                        '1'   when (PI_OPC   = pi_opc_wdu) else '0';
-  WRT_RI     <= guarded '0'   when (RESET_SI = '1') else 
-                        '0'   when (PI_ACYC  = '0') else not PI_READ;
+  SEL_RI     <= guarded '0' when (RESET_SI = '1'       ) else 
+                        '0' when (PI_ACYC  = '0'       ) else PI_SEL;
+  WDU_RI     <= guarded '0' when (RESET_SI = '1'       ) else 
+                        '0' when (PI_ACYC  = '0'       ) else
+                        '1' when (PI_OPC   = pi_opc_wdu) else '0';
+  WRT_RI     <= guarded '0' when (RESET_SI = '1'       ) else 
+                        '0' when (PI_ACYC  = '0'       ) else not PI_READ;
 
-  BASADR_RS  <= guarded PI_D;
-  BASVLD_RS  <= guarded '0' when (RESET_SI = '1') else BASVLD_SS;
+  BASADR_RI  <= guarded PI_D;
+  BASVLD_RI  <= guarded '0' when (RESET_SI = '1'       ) else BASVLD_SI;
 
 end block;
  
@@ -240,8 +270,8 @@ begin
   ADRDAT_RS  <= guarded ADRADR_RS;
   DATDAT_RS  <= guarded PI_D;
 
-  PNDLCK_RS  <= guarded '0' when (RESET_SS = '1') else PNDLCK_SS;
-  DONLCK_RS  <= guarded '0' when (RESET_SS = '1') else DONLCK_SS;
+  PNDLCK_RS  <= guarded '0'    when (RESET_SS = '1') else PNDLCK_SS;
+  DONLCK_RS  <= guarded '0'    when (RESET_SS = '1') else DONLCK_SS;
 
   PNDADR_RS  <= guarded zro_32 when (RESET_SS = '1') else PNDADR_SS;
 
@@ -251,7 +281,7 @@ end block;
 	-- #   Assign Outputs - Interconnect Controller			#
 	-- ### ------------------------------------------------------ ###
 
-PI_ACKNOWLEDGE : block (PI_SEL = '1')
+PI_ACKNOWLEDGE : block (ACKEN_SI = '1')
 begin
   PI_ACK     <= guarded pi_ack_rdy when (ACKRDY_SI = '1') else pi_ack_err;
 end block;
