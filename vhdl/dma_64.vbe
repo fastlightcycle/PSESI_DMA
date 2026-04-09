@@ -15,7 +15,7 @@
 -- # authors	: Pirouz Bazargan Sabet					#
 -- ### -------------------------------------------------------------- ###
 
-entity DM1_64 is
+entity DMA_64 is
 
 port
   (
@@ -39,9 +39,9 @@ port
   signal   VSS        : in    bit
   );
 
-end DM1_64 ;
+end DMA_64 ;
 
---
+--
 -- ### -------------------------------------------------------------- ###
 -- #   description - contains the following sections :			#
 -- #									#
@@ -108,6 +108,9 @@ architecture BEHAVIOURAL of DMA_64 is
   signal   PLCKWE_SS  : bit                                ;
   signal   PADRWE_SS  : bit                                ;
   signal   DLCKWE_SS  : bit                                ;
+  signal   PNDLCK_RS  : bit_vector ( 31 downto  0) register;
+  signal   PNDADR_RS  : bit_vector ( 31 downto  0) register;
+  signal   DONLCK_RS  : bit_vector ( 31 downto  0) register;
   signal   PNDLCK_SS  : bit_vector ( 31 downto  0)         ;
   signal   PNDADR_SS  : bit_vector ( 31 downto  0)         ;
   signal   DONLCK_SS  : bit_vector ( 31 downto  0)         ;
@@ -143,7 +146,7 @@ architecture BEHAVIOURAL of DMA_64 is
 	-- #   offsets and masks					#
 	-- ### ------------------------------------------------------ ###
 
-  constant adr_mask   : bit_vector ( 31 downto  0) := X"ffffffe0"  ;-- 
+  constant bas_mask   : bit_vector ( 31 downto  0) := X"ffffffe0"  ;-- 
 
   constant pnd_adr_of : bit_vector (  4 downto  0) := B"01100"     ;-- pnd adr
   constant pnd_lck_of : bit_vector (  4 downto  0) := B"10000"     ;-- pnd adr
@@ -218,8 +221,8 @@ VLDDAT_SS  <= VLDADR_RS and DATRDY_SS;
 	-- ### ------------------------------------------------------ ###
 
 CPBAS_SS   <= (ADRDAT_RS xor BASADR_RI) and bas_mask;
-EQBAS_SS   <= '1' when (CPADR_SS = zro_32) else '0';
-MCHBAS_SS  <= EQBAS_SS and BASVLD_RI and VLDDATA_RS;
+EQBAS_SS   <= '1' when (CPBAS_SS = zro_32) else '0';
+MCHBAS_SS  <= EQBAS_SS and BASVLD_RI and VLDDAT_RS;
 
 ADROFS_SS  <= ADRDAT_RS ( 4 downto 0);
 
