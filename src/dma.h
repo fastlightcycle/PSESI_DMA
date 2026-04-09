@@ -19,10 +19,6 @@
 #define PENDING 0x0100
 #define DONE    0x1000
 
-extern pthread_mutex_t mutex_free;
-extern pthread_mutex_t mutex_pending;
-extern pthread_mutex_t mutex_done;
-
 typedef struct s_tab {
   uintptr_t stt;
   uintptr_t end;
@@ -45,8 +41,11 @@ extern job jobs[MAX_JOBS];
 
 typedef struct s_racine {
   job* pending;
+  pthread_mutex_t free_lck;
   job* free;
+  pthread_mutex_t pending_lck;
   job* done;
+  pthread_mutex_t done_lck;
 } racine;
 
 extern racine r;

@@ -3,12 +3,17 @@
 #include<stdio.h>
 #include<pthread.h>
 
-pthread_mutex_t mutex_free = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_pending = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_done = PTHREAD_MUTEX_INITIALIZER;
-
 job jobs[MAX_JOBS];
-racine r;
+
+racine r = {
+  .pending = NULL,
+  .free_lck = PTHREAD_MUTEX_INITIALIZER,
+  .free = NULL,
+  .pending_lck = PTHREAD_MUTEX_INITIALIZER,
+  .done = NULL,
+  .done_lck = PTHREAD_MUTEX_INITIALIZER
+};
+  
 pthread_t preneur_job;    
 
 /* 
@@ -16,10 +21,7 @@ pthread_t preneur_job;
  * Appelé lors du boot
  */
 int DMA_init() {
-  
-  r.pending = NULL;
-  r.done = NULL;
-  
+
   // Toutes les cases du tableau de jobs sont vides au début
   for(int i = 0; i < MAX_JOBS; i++) {
     (jobs[i]).status = FREE;
@@ -50,17 +52,17 @@ void DMA_cleanup() {
 uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t size) {
   if (size != src->size || size != trg->size) {
     fprintf(stderr, "ERROR: sizes do not match\n");
-    return 0;
+    return -1;
   }
 
-  pthread_mutex_lock(&mutex_free);
+  pthread_mutex_lock(&r.free_lck);
   job* j = remove_free_head();
   if (!j) {
     fprintf(stderr, "WARNING: Job list is full!\n");
-    pthread_mutex_unlock(&mutex_free);
+    pthread_mutex_unlock(&r.free_lck);
     return 0;
   }
-  pthread_mutex_unlock(&mutex_free);
+  pthread_mutex_unlock(&r.free_lck);
 
   j->status = PENDING;
   j->src = src;
@@ -69,13 +71,13 @@ uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t size) {
   j->trg_stp = trg_stp;
   j->size = size;
 
-  pthread_mutex_lock(&mutex_pending);
+  pthread_mutex_lock(&r.pending_lck);
   if(add_pending(j)) {
     fprintf(stderr, "ERROR: could not add job to pending list\n");
-    pthread_mutex_unlock(&mutex_pending);
-    return 0;
+    pthread_mutex_unlock(&r.pending_lck);
+    return -1;
   }
-  pthread_mutex_unlock(&mutex_pending);
+  pthread_mutex_unlock(&r.pending_lck);
 
   return (uintptr_t)j;
 }
@@ -89,28 +91,27 @@ int DMA_done(uintptr_t id) {
   job* j = (job*)id;
 
   if(j->status == DONE) {
-    pthread_mutex_lock(&mutex_done);
+    pthread_mutex_lock(&r.done_lck);
     if(remove_done(j)) {
       fprintf(stderr, "ERROR: could not remove job from done list\n");
-      pthread_mutex_unlock(&mutex_done);
-      return 0;
+      pthread_mutex_unlock(&r.done_lck);
+      return -1;
     }
-    pthread_mutex_unlock(&mutex_done);
+    pthread_mutex_unlock(&r.done_lck);
     
     j->status = FREE;
 
-    pthread_mutex_lock(&mutex_free);
+    pthread_mutex_lock(&r.free_lck);
     if(add_free(j)) {
       fprintf(stderr, "ERROR: could not add job to free list\n");
-      pthread_mutex_unlock(&mutex_free);
-      return 0;
+      pthread_mutex_unlock(&r.free_lck);
+      return -1;
     }
-    pthread_mutex_unlock(&mutex_free);
+    pthread_mutex_unlock(&r.free_lck);
     
     return 1;
   }
 
-  fprintf(stderr, "WARNING: Job not found in DMA_done\n");
   return 0;
 }
 
@@ -244,32 +245,32 @@ void show_jobs(){
   job* j;
 
   printf("\tFree jobs:");
-  pthread_mutex_lock(&mutex_free);
+  pthread_mutex_lock(&r.free_lck);
   j = r.free;
   while(j) {
     printf(" [%ld]", (uintptr_t)j);
     j = j->next;
   }
-  pthread_mutex_unlock(&mutex_free);
+  pthread_mutex_unlock(&r.free_lck);
   printf("\n");
 
   printf("\tPending jobs:");
-  pthread_mutex_lock(&mutex_pending);
+  pthread_mutex_lock(&r.pending_lck);
   j = r.pending;
   while(j) {
     printf(" [%ld]", (uintptr_t)j);
     j = j->next;
   }
-  pthread_mutex_unlock(&mutex_pending);
+  pthread_mutex_unlock(&r.pending_lck);
   printf("\n");
 
   printf("\tDone jobs:");
-  pthread_mutex_lock(&mutex_done);
+  pthread_mutex_lock(&r.done_lck);
   j = r.done;
   while(j) {
     printf(" [%ld]", (uintptr_t)j);
     j = j->next;
   }
-  pthread_mutex_unlock(&mutex_done);
+  pthread_mutex_unlock(&r.done_lck);
   printf("\n");
 }
