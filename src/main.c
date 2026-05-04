@@ -5,7 +5,6 @@
 #include<signal.h>
 #include<pthread.h>
 
-
 #define N 10
 
 void handle_sigint(int sig){

@@ -7,33 +7,14 @@
 volatile atomic_int running = 1; // Flag partagé pour gérer thread DMA
 
 /*
- * Simulation du comportement de la DMA
- */
-job * DMA_prend() {
-  pthread_mutex_lock(&r.pending_lck);
-
-  job* j = remove_pending_head();
- 
-  if(j) {
-    pthread_mutex_unlock(&r.pending_lck);
-    return j;
-  }
-
-  // Un autre DMA a peut-être pris le job
-  pthread_mutex_unlock(&r.pending_lck);
-  return NULL;
-}
-
-/*
  * Simulation du travail de la DMA
  */
- 
 void * DMA_sim(void* args) {
   printf("DMA lancée\n");
 
   job* j;
   while(running) {
-    j = DMA_prend();
+    j = remove_pending_head();
     if(j) {
       int* src = (int*)(j->src->stt);
       int* trg = (int*)(j->trg->stt);
@@ -42,7 +23,7 @@ void * DMA_sim(void* args) {
       }
   
       if(DMA_fini(j)) {
-        fprintf(stderr, "ERROR: could not finish job, stoppong simulation\n");
+        fprintf(stderr, "ERROR: could not finish job, stopping simulation\n");
         DMA_cleanup();
       }
     }
@@ -58,13 +39,10 @@ void * DMA_sim(void* args) {
 int DMA_fini(job* j) {
   j->status = DONE;
 
-  pthread_mutex_lock(&r.done_lck);
   if(add_done(j)) {
     fprintf(stderr, "ERROR: could not add job to done list\n");
-    pthread_mutex_unlock(&r.done_lck);
     return -1;
   }
-  pthread_mutex_unlock(&r.done_lck);
 
   return 0;
 }
