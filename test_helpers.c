@@ -131,10 +131,66 @@ void dma_test_reset_root_state(void) {
         jobs[i].trg = NULL;
         jobs[i].prec = NULL;
         
-        // Chaînage standard pour `add_free`
+        // Chaînage standard pour add_free
         jobs[i].next = r.free;
         r.free = &jobs[i];
     }
     
     dma_test_unlock_all();
+}
+
+void dt_init_tab(tab* t, int start_value) {
+    if (!t) return;
+    int* tab = (int*)t->stt;
+    for (size_t i = 0; i < t->size; i++) {
+        tab[i] = start_value + i;
+    }
+}
+
+int dt_verify_data(tab* src, tab* trg) {
+    if (!src || !trg || src->size != trg->size) return 0;
+    
+    int* src_array = (int*)src->stt;
+    int* trg_array = (int*)trg->stt;
+    
+    for (size_t i = 0; i < src->size; i++) {
+        if (src_array[i] != trg_array[i]) {
+            printf("Mismatch at index %zu: Expected %d, Got %d\n", i, src_array[i], trg_array[i]);
+            return 0; // Erreur de copie
+        }
+    }
+    return 1; // Copie parfaite
+}
+
+#include <unistd.h> // usleep
+
+int dt_wait_for_job_timeout(job* j, int timeout_ms) {
+    int waited = 0;
+    int step = 10; // vérifie toutes les 10 ms
+
+    while (waited < timeout_ms) {
+        // Lecture sécurisée du statut (pour éviter les data races)
+        dma_test_lock_all();
+        dma_test_unlock_all();
+
+        if (j->status == DONE) {
+            return 1; // Succès
+        }
+
+        usleep(step * 1000); // usleep prend des microsecondes
+        waited += step;
+    }
+    printf("Timeout: %d ms\n", timeout_ms);
+    return 0; // Échec
+}
+
+int dt_job_position(job *tete, job *elem) {
+    int pos = 0;
+    job *curr = tete;
+    while (curr != NULL) {
+        if (curr == elem) return pos;
+        curr = curr->next;
+        pos++;
+    }
+    return -1;
 }

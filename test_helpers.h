@@ -33,6 +33,27 @@ int dt_job_count(void);
 int dt_job_is_from_pool(job *j);
 void dt_reset_root_state(void);
 
+void dt_init_tab(tab* t, int start_value);
+int  dt_verify_data(tab* src, tab* trg);
+
+int dt_wait_for_job_timeout(job *j, int timeout_ms);
+int dt_job_position(job *tete, job *elem);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // --- Macros de tests
 
 #define ASSERT_LIST_LEN(head, expected) \ 
@@ -49,7 +70,7 @@ void dt_reset_root_state(void);
 
 // Vérifie que la somme des jobs dans les 3 listes est bien égale à MAX_JOBS
 #define ASSERT_DMA_COUNT() \ 
-    assert(dma_test_job_count() == MAX_JOBS)
+    assert(dt_job_count() == MAX_JOBS)
 
 #define ASSERT_DMA_JOB_FAIL(call) \
     assert((uintptr_t)(call) == (uintptr_t)-1)
@@ -61,7 +82,19 @@ void dt_reset_root_state(void);
     assert((uintptr_t)(id) != 0 && (uintptr_t)(id) != (uintptr_t)-1)
 
 #define ASSERT_JOB_FROM_POOL(id) \
-    assert(dma_test_job_is_from_pool((job*)(id)) == 1)
+    assert(dt_job_is_from_pool((job*)(id)) == 1)
+
+#define ASSERT_DATA_MATCH(src, trg) \
+    assert(dt_verify_data((src), (trg)) == 1)
+
+#define ASSERT_JOB_DONE_TIMEOUT(j, ms) \
+    assert(dt_wait_for_job_timeout((j), (ms)) == 1)
+
+#define ASSERT_JOB_POSITION(tete, jobptr, expected_pos) \
+    assert(dt_job_position((tete), (jobptr) == (expected_pos)))
+
+
+
 
     // Macro multi-lignes pour vérifier l'état complet d'un job
 #define ASSERT_JOB_MATCHES(j, expected_src, expected_trg, expected_src_stp, expected_trg_stp, expected_size) \
