@@ -4,41 +4,61 @@
 
 
 
+
 int main() {
     DMA_init();
-    int t1[5], t2[5], t3[5], t4[5], t5[5], t6[5];
-    for(int i=0; i<5;i++){
-        t1[i] = i;
-        t3[i] = 10 + i;
-        t5[i] = 100 + i;
-    }
-    tab* src1 = create_tab(t1, 5, RED_RDY);
-    tab* trg1 = create_tab(t2, 5, WRT_RDY);
-    tab* src2 = create_tab(t3, 5, RED_RDY);
-    tab* trg2 = create_tab(t4, 5, WRT_RDY);
-    tab* src3 = create_tab(t5, 5, RED_RDY);
-    tab* trg3 = create_tab(t6, 5, WRT_RDY);
 
-    uintptr_t j0 = DMA_job(src1, trg1, 1, 1, 5);
-    uintptr_t j1 = DMA_job(src2, trg2, 1, 1, 5);
-    uintptr_t j2 = DMA_job(src3, trg3, 1, 1, 5);
+    /*-------------------------------------------------------------------------------------
+    TEST STEP 
+    ---------------------------------------------------------------------------------------
+    */
 
-    ajout_couple((void*)t1, (void*)t2, 5, 0);
-    ajout_couple((void*)t3, (void*)t4, 5, 1);
-    ajout_couple((void*)t5, (void*)t6, 5, 2);
+    // dma_tes
+    // TEST DE LA TAILLE 
+    // ---------------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------------
+    printf("Init tab\n");
+    
+    int *t1_vide = clear_tab(50);
+    int *t1_rempli = init_tab(50 , 0); 
+    tab* src1 = create_tab(t1_rempli, 50, RED_RDY);
+    tab* trg1 = create_tab(t1_vide  , 50, WRT_RDY);
 
-    while(!DMA_done(j0));
-    while(!DMA_done(j1));
-    while(!DMA_done(j2));
+    ASSERT_LIST_LEN(r.free, MAX_JOBS);
+    ASSERT_LIST_LEN(r.pending, 0);
+    ASSERT_LIST_LEN(r.done, 0);
+
+    if(ajout_couple(src1, trg1, 50, 0)){
+        fprintf(stderr, "ERROR : ajout couple non réussi \n");
+        return -1;
+    }   
+    printf("ajout dans racine\n");
+    uintptr_t j0 = DMA_job(src1, trg1, 1, 1, 50);
+    ASSERT_LIST_LEN(r.free, 0);
+    ASSERT_LIST_LEN(r.pending, 5);
+    ASSERT_LIST_LEN(r.done, 0);
+
+    
+    while(!DMA_done(j0)); 
+    ASSERT_DMA_COUNT();
+
+    printf("free %zu pending %zu done %zu\n", dt_list_size(r.free), dt_list_size(r.pending), dt_list_size(r.done));
 
     pthread_t verif_finale;
     if (pthread_create(&verif_finale, NULL, tab_verif_finale, NULL)){     
         fprintf(stderr, "Verif thread could not be created\n");
         return -1;
     }
-
+    ASSERT_LIST_LEN(r.free, 5);
+    ASSERT_DMA_COUNT();
     pthread_join(verif_finale, NULL);
 
+
+
+
+
+
+    
     return 0;
 }
 
