@@ -225,8 +225,8 @@ int tab_verif(tab *src, tab *trg){
     int *array_src = (int *)src->stt;
     int *array_trg = (int *)trg->stt;
 
-   // affiche_tab(array_src, src->size);
-    //affiche_tab(array_trg, trg->size);
+    affiche_tab(array_src, src->size);
+    affiche_tab(array_trg, trg->size);
 
     for(size_t i = 0; i < nb_elements; i++){
         printf("%d %d\n", array_src[i], array_trg[i]); 
