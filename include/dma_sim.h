@@ -7,7 +7,7 @@
 extern volatile atomic_int running; // Flag partagé pour gérer thread DMA
 
 job * DMA_prend();
-void * DMA_sim(void* args);
+void * DMA_sim();
 int DMA_fini(job* j);
 
 #endif // DMA_SIM
