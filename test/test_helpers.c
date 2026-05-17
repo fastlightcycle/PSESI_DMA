@@ -1,9 +1,12 @@
 #include "test_helpers.h"
 #include "dma.h"
+#include <string.h>
+
+size_t index_couple_tab = 0;
 
 couple_tab liste_verif[NBTESTS];
-
-int ajout_couple(tab* src, tab* trg, size_t size, size_t test_num) {
+// test_num est le numéro du couple 
+int ajout_couple(tab* src, tab* trg, size_t size, size_t *test_num) {
     printf("ajout_couple: %p %p\n",src,trg);
     size_t byte_size_src = sizeof(src);
     size_t byte_size_trg = sizeof(trg);
@@ -17,8 +20,8 @@ int ajout_couple(tab* src, tab* trg, size_t size, size_t test_num) {
     c.trg = trg;
     c.size = size;
 
-    liste_verif[test_num] = c;
-
+    liste_verif[index_couple_tab] = c;
+    *test_num = index_couple_tab;
     return 0;
 }
 
@@ -126,24 +129,9 @@ void dt_reset_root_state(void) {
 void dt_init_tab(tab* t, int start_value) {
     if (!t) return;
     int* tab = (int*)t->stt;
-    for (size_t i = 0; i < t->size; i++) {
+    for (size_t i = 0; i < t->len; i++) {
         tab[i] = start_value + i;
     }
-}
-
-int dt_verify_data(tab* src, tab* trg) {
-    if (!src || !trg || src->size != trg->size) return 0;
-    
-    int* src_array = (int*)src->stt;
-    int* trg_array = (int*)trg->stt;
-    
-    for (size_t i = 0; i < src->size; i++) {
-        if (src_array[i] != trg_array[i]) {
-            printf("Mismatch at index %zu: Expected %d, Got %d\n", i, src_array[i], trg_array[i]);
-            return 0; // Erreur de copie
-        }
-    }
-    return 1; // Copie parfaite
 }
 
 #include <unistd.h> // usleep
@@ -212,42 +200,58 @@ void dt_unlock_all(void){
     pthread_mutex_unlock(&r.free_lck);
 }
 
-void affiche_tab(int *t, size_t size){
+void affiche_tab(tab *t){
+    size_t nb_elements = t->len ; 
+    size_t size_in_bytes = nb_elements * t->size_data;
+    uint8_t *array_src = (uint8_t*)t->stt;
     size_t i;
-    for(i=0; i<size; i++)
-        printf("%d\t",t[i]);
-    printf("\npointeur %p et i : %zu\n",t,i);
+
+    for(i=0; i<size_in_bytes; i++)
+        printf("0x%02X\t",array_src[i]);
+    printf("\npointeur %p et i : %zu\n", array_src, i);
 }
 
-int tab_verif(tab *src, tab *trg){
-    size_t nb_elements = src->size ; 
+int tab_verif_long(tab *src, tab *trg){
+    size_t nb_elements = src->len ; 
+    size_t size_in_bytes = nb_elements * src->size_data;
     // On caste l'adresse entière (uintptr_t) en pointeur d'entiers (int *)
-    int *array_src = (int *)src->stt;
-    int *array_trg = (int *)trg->stt;
+    uint8_t *array_src = (uint8_t*)src->stt;
+    uint8_t *array_trg = (uint8_t*)trg->stt;
 
-    affiche_tab(array_src, src->size);
-    affiche_tab(array_trg, trg->size);
-
-    for(size_t i = 0; i < nb_elements; i++){
-        printf("%d %d\n", array_src[i], array_trg[i]); 
-        
+    for(size_t i = 0; i < size_in_bytes; i++){        
         if(array_src[i] != array_trg[i]) {
-            return -1;
+        printf("Mismatch at byte %zu: Expected 0x%02X, Got 0x%02X\n", i, array_src[i], array_trg[i]);            return -1;
         }
     }
-
     return 0;
 }
 
+int tab_verif_rapide(tab *src, tab *trg){
+    if (memcmp((void *)src->stt, (void *)trg->stt, src->len) != 0) {
+        printf("Mismatch detected in memory blocks.\n");
+        return -1;
+    }
+    return 0;
+}
 
 void *tab_verif_finale(void *arg){
     for(size_t i = 0; i < 1; i++) {
-        if( tab_verif(liste_verif[i].src, liste_verif[i].trg) ) {
+        if( tab_verif_rapide(liste_verif[i].src, liste_verif[i].trg) ) {
             fprintf(stderr, "ERROR: Couple de tableaux %ld incorrect\n", i);
             return NULL;
         }
     }
 
     printf("Verification réussie\n");
+    return NULL;
+}
+
+
+void* thread_create_jobs(void* arg) {
+    ThreadJobArgs* args = (ThreadJobArgs*)arg;
+    for(int i = args->start_index; i <= args->end_index; i++) {
+        // Utilise liste_verif remplie par ajout_couple()
+        args->job_ids_array[i] = DMA_job(liste_verif[i].src, liste_verif[i].trg, 1, 1, liste_verif[i].size);
+    }
     return NULL;
 }
