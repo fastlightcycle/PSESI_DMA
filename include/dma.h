@@ -6,7 +6,7 @@
 #include<stdlib.h>
 #include<pthread.h>
 
-#define MAX_JOBS 5
+#define MAX_JOBS 6
 
 #define RED_RDY 0x00001
 #define WRT_RDY 0x00010
@@ -23,7 +23,8 @@ typedef struct s_tab {
   uintptr_t   stt;
   uintptr_t   end;
   int         sc_flag; // Status et config
-  size_t      size;
+  size_t      len;
+  size_t      size_data;
 } tab;
 
 typedef struct s_job {
@@ -50,21 +51,20 @@ typedef struct s_racine {
 
 extern racine r;
 
-tab* create_tab(int* array, size_t size, int flag);
+tab* create_tab(uintptr_t* array, size_t len, size_t size_data, int flag);
+uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t len);
 
-int add_free(job* j);
+int   add_free(job* j);
 job * remove_free_head();
-int add_pending(job* j);
+int   add_pending(job* j);
 job * remove_pending_head();
-int add_done(job* j);
-int remove_done(job* j);
+int   add_done(job* j);
+int   remove_done(job* j);
 
-int DMA_init();
-void DMA_cleanup();
-uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t size);
-int DMA_done(uintptr_t id);
+int   DMA_init();
+void  DMA_cleanup();
+int   DMA_done(uintptr_t id);
 
 // Vérification 
-void show_jobs();
-int max_job();
+void  show_jobs();
 #endif // _DMA_H

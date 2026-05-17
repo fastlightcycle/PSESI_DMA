@@ -7,22 +7,29 @@
 #include <stdio.h>
 
 
-#define NBTESTS 3
+#define NBTESTS 10000 // 10 000 pour être serein, le c est rapide + petite structure 
 
 typedef struct s_couple_tab{
-    tab *src;
-    tab *trg;
-    size_t size; // taille en octet 
+    tab    *src;
+    tab    *trg;
+    size_t size; // en élément
 } couple_tab;
-
+extern size_t index_couple_tab;
 extern couple_tab liste_verif[NBTESTS];
+
+// Structure pour indiquer au thread quels jobs créer
+typedef struct {
+    int start_index;
+    int end_index;
+    uintptr_t* job_ids_array;
+} ThreadJobArgs;
+
+void* thread_create_jobs(void* arg);
 
 // --- Prototypes des fonctions de test --- 
 // je vais renommer dma_test par dt
-int     ajout_couple(tab* src, tab* trg, size_t size, size_t test_num);
+int     ajout_couple(tab* src, tab* trg, size_t size, size_t *test_num);
 
-int     tab_verif(tab* src, tab* trg);
-void    *tab_verif_finale(void *arg);
 
 size_t  dt_list_size(job* tete); // job_list_count
 int     dt_is_present(job *tete, job *elem); // job_list_contains  // je ne pense pas l'utiliser enfin pas dans nos main 
@@ -33,7 +40,6 @@ int     dt_job_is_from_pool(job *j);
 void    dt_reset_root_state(void);
 
 void    dt_init_tab(tab* t, int start_value);
-int     dt_verify_data(tab* src, tab* trg);
 
 int     dt_wait_for_job_timeout(job *j, int timeout_ms);
 int     dt_job_position(job *tete, job *elem);
@@ -42,8 +48,11 @@ int     dt_job_position(job *tete, job *elem);
 // init tab int
 int* init_tab(size_t size, int start);
 int* clear_tab(size_t size);
-void affiche_tab(int *t, size_t size);
+void affiche_tab(tab *t);
 
+int     tab_verif_long(tab* src, tab* trg);
+int     tab_verif_rapide(tab* src, tab* trg);
+void    *tab_verif_finale(void *arg);
 
 void dt_lock_all(void); 
 void dt_unlock_all(void);
