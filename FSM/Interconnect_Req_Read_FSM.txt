@@ -1,0 +1,36 @@
+color Idle #ffffff
+
+Idle -> Idle : $\overline{ValidRequest}$
+Idle -> Req : $Valid Request$
+Req -> Read_AD : $GNT \cdot Read$
+Req -> Req : $\overline{GNT}$
+
+Read_AD -> Read_DTAD : Ready
+Read_DTAD -> Retract : $Retract$
+Read_DTAD -> Read_DTAD : $\overline{Last}$
+Read_DTAD -> Write_AD_Job_status : $ERROR$
+Read_DTAD -> Read_DT : $Last$
+Read_DT -> Retract : $Retract$
+Retract -> Idle
+
+Read_DT  -> OK : $Ready$
+OK -> Idle
+
+
+// error
+
+Read_DT -> Write_AD_Job_status : $ERROR$
+Write_AD_Job_status -> Write_DT_Error 
+Write_DT_Error -> Write_DT_Error : $Wait$
+Write_DT_Error -> Error 
+Error -> Idle
+
+
+
+
+
+
+
+
+
+

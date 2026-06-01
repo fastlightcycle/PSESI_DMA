@@ -35,7 +35,7 @@
 *.i*86
 *.x86_64
 *.hex
-sim_dma
+test*
 
 # Debug files
 *.dSYM/

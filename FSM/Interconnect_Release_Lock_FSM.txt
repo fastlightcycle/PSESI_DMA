@@ -1,0 +1,19 @@
+color Idle #ffffff
+color Request #ffffff
+
+Idle -> Idle : $\overline{Valid\_Request}$
+Idle -> Request : $Valid\_Request$
+
+Request -> Request : $\overline{GNT}$
+Request -> Write_AD_Lock: $GNT \cdot Release\_Lock$
+
+Write_AD_Lock -> Write_DT_0
+
+Write_DT_0 -> Write_DT_0 : $Wait$
+Write_DT_0 -> OK : $READY$
+Write_DT_0 -> Error : $ERROR$
+Write_DT_0 -> Retract : $RETRACT$
+
+Error -> Idle
+Retract -> Idle
+OK -> Idle

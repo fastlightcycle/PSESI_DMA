@@ -46,30 +46,38 @@ void DMA_cleanup() {
 }
 
 /* 
- * Ajout d'un job
+ * Initialisation d'un job et ajout de ce job dans la liste pending
+ *
  * Exécuté par l'OS après le syscall de DMA_job
+ *
+ * Valeurs de retour:
+ *      @ job: Succès
+ *      0    : Liste free est vide - il n'y a pas de place pour un nouveau job
+ *      -1   : Erreur
  */
-uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t size) {
-  if (size != src->size || size != trg->size) {
-    fprintf(stderr, "ERROR: sizes do not match\n");
+uintptr_t DMA_job(uintptr_t* src, uintptr_t* trg, size_t size) {
+  if(!src){
+    fprintf(stderr, "DMA_JOB: src address is invalid\n");
+    return -1;
+  }
+
+  if(!trg){
+    fprintf(stderr, "DMA_JOB: src address is invalid\n");
     return -1;
   }
 
   job* j = remove_free_head();
   if (!j) {
-    fprintf(stderr, "WARNING: Job list is full!\n");
     return 0;
   }
 
   j->status = PENDING;
   j->src = src;
   j->trg = trg;
-  j->src_stp = src_stp;
-  j->trg_stp = trg_stp;
   j->size = size;
 
   if(add_pending(j)) {
-    fprintf(stderr, "ERROR: could not add job to pending list\n");
+    fprintf(stderr, "DMA_JOB: could not add job to pending list\n");
     return -1;
   }
 
@@ -78,22 +86,38 @@ uintptr_t DMA_job(tab* src, tab* trg, int src_stp, int trg_stp, size_t size) {
 
 /* 
  * Vérification de la fin d'un job et libération de ce job
+ *
  * Exécuté par l'OS après le syscall de DMA_done
  * Non bloquante
+ *
+ * Valeurs de retour:
+ *      1  : Succès
+ *      0  : Job en cours de traitement
+ *      -1 : Erreur
  */
 int DMA_done(uintptr_t id) {
+  if(id < (uintptr_t)&jobs[0] || id > (uintptr_t)&jobs[MAX_JOBS-1]){
+    fprintf(stderr, "DMA_DONE: Job address is out of bounds\n");
+    return -1;
+  }
+
   job* j = (job*)id;
+
+  if(j->status == FREE){
+    fprintf(stderr, "DMA_DONE: Job's status is FREE, maybe it has already been acknowledged?\n");
+    return -1;
+  }
 
   if(j->status == DONE) {
     if(remove_done(j)) {
-      fprintf(stderr, "ERROR: could not remove job from done list\n");
+      fprintf(stderr, "DMA_DONE: could not remove job from done list\n");
       return -1;
     }
     
     j->status = FREE;
 
     if(add_free(j)) {
-      fprintf(stderr, "ERROR: could not add job to free list\n");
+      fprintf(stderr, "DMA_DONE: could not add job to free list\n");
       return -1;
     }
     
@@ -104,29 +128,16 @@ int DMA_done(uintptr_t id) {
 }
 
 /*
- * Créé structure qui associe tableau à son statut
- */
-tab* create_tab(int* array, size_t size, int flag) {
-  if(!array) {
-    fprintf(stderr, "ERROR: NULL pointer passed to create_tab()\n");
-    return NULL;
-  }
- 
-  tab* t = malloc(sizeof(tab));
-  t->stt = (uintptr_t)array;
-  t->end = (uintptr_t)array+size;
-  t->sc_flag = flag;
-  t->size = size;
-
-  return t;
-}
-
-/*
  * Ajoute le job en tete de la liste free
  * Retourne 0 si réussi, -1 sinon
  */
 int add_free(job* j) {
   if(!j) {
+    fprintf(stderr, "ADD_FREE: Bad job address\n");
+    return -1;
+  }
+  if (j->status == PENDING){
+    fprintf(stderr, "ADD_FREE: Job is in PENDING list, it must pass through DONE\n");
     return -1;
   }
 
@@ -155,15 +166,16 @@ job * remove_free_head() {
 
   pthread_mutex_unlock(&r.free_lck);
 
-  return j;
+  return j; // Retournera NULL si la liste est vide
 }
 
 /*
- * Ajout d'un job dans la liste done
+ * Ajout d'un job dans la liste pending
  * Ajout en queue dans une liste circulaire simplement chaînée
  */
 int add_pending(job* j) {
   if(!j) {
+    fprintf(stderr, "ADD_PENDING: Bad job address\n");
     return -1;
   }
 
@@ -171,6 +183,7 @@ int add_pending(job* j) {
 
   if(r.pending) {
     ((r.pending)->prec)->next = j;
+    j->prec = (r.pending)->prec;
     (r.pending)->prec = j;
   } else {
     r.pending = j;
@@ -208,15 +221,17 @@ job * remove_pending_head() {
  * Ajout en tete dans une liste doublement chaînée
  */
 int add_done(job* j) {
-  if(!j) {
+  if(!j){
+    fprintf(stderr, "ADD_DONE: Bad job address\n");
     return -1;
-  }
+  } 
 
   pthread_mutex_lock(&r.done_lck);
 
   if(r.done) {
     (r.done)->prec = j;
   }
+  j->prec = NULL;
   j->next = r.done;
   r.done = j;
 
@@ -230,6 +245,7 @@ int add_done(job* j) {
  */
 int remove_done(job* j) {
   if(!j) {
+    fprintf(stderr, "REMOVE_DONE: Bad job address\n");
     return -1;
   }
 
@@ -252,6 +268,7 @@ int remove_done(job* j) {
 
 /*
  * Affiche l'état des 3 listes de jobs sur le terminal
+ * Pour le débuggage
  */
 void show_jobs(){
   printf("Jobs status:\n");

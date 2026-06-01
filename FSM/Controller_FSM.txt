@@ -1,0 +1,60 @@
+color Idle #ffffff
+
+Idle -> Idle : $PND\_LCK + \overline{PND\_ADR}$
+Idle -> Req_Lock_PND : $\overline{PND\_LCK} \cdot PND\_ADR$
+
+Req_Lock_PND -> Wait_Lock_PND : $1$
+
+Wait_Lock_PND -> Wait_Lock_PND : $\overline{Done}$
+Wait_Lock_PND -> Req_Lock_PND : $Retract$
+Wait_Lock_PND -> Idle : $Done + \overline{RSP\_PND\_LCK}$
+Wait_Lock_PND -> Machine_Check : $ERROR$
+Wait_Lock_PND -> List_Head_Check : $Done \cdot RSP\_PND\_LCK$
+
+List_Head_Check -> Req_Job : $\overline{Empty}$
+List_Head_Check -> Release_Lock_PND : $Empty$
+Release_Lock_PND -> Idle
+
+Req_Job -> Wait_Job
+
+Wait_Job -> Wait_Job : $\overline{Done}$
+Wait_Job -> Req_Job : $Retract$
+Wait_Job -> Machine_Check : $ERROR$
+Wait_Job -> Req_Read : $Done$
+
+Req_Read -> Wait_Read
+
+Wait_Read -> Wait_Read : $\overline{Done}$
+Wait_Read -> Req_Read : $Retract$
+Wait_Read -> Bus_Error : $ERROR$
+Wait_Read -> Req_Write : $Done$
+
+Req_Write -> Wait_Write
+
+Wait_Write -> Wait_Write : $\overline{Done}$
+Wait_Write -> Req_Write : $Retract$
+Wait_Write -> Bus_Error : $ERROR$
+Wait_Write -> Req_Read : $Done \cdot \overline{ENDSIZE}$
+Wait_Write -> Wait_Snoopy_Lock_DON : $Done \cdot ENDSIZE$
+
+Wait_Snoopy_Lock_DON -> Wait_Snoopy_Lock_DON : $DON\_LCK$
+Wait_Snoopy_Lock_DON -> Req_Lock_DON: $\overline{DON\_LCK}$
+
+Req_Lock_DON -> Wait_Lock_DON
+
+Wait_Lock_DON -> Wait_Lock_DON : $\overline{Done}$
+Wait_Lock_DON -> Req_Lock_DON : $Retract$
+Wait_Lock_DON -> Machine_Check : $ERROR$
+Wait_Lock_DON -> Wait_Snoopy_Lock_DON : $Done + \overline{RSP\_PND\_LCK}$
+Wait_Lock_DON -> Req_Done_Job : $Done \cdot RSP\_DON\_LCK$
+
+Req_Done_Job -> Wait_Done_Job
+
+Wait_Done_Job -> Wait_Done_Job : $\overline{Done}$
+Wait_Done_Job -> Req_Done_Job : $Retract$
+Wait_Done_Job -> Machine_Check : $ERROR$
+Wait_Done_Job -> Idle : $Done$
+
+Bus_Error -> Wait_Snoopy_Lock_DON
+
+Machine_Check -> Idle : $1$

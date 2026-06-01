@@ -1,0 +1,28 @@
+digraph Interconnect_Req_Write_FSM {
+    node [shape=circle];
+    
+    Idle [style=filled, fillcolor="#ffffff"];
+
+    Idle -> Idle [label=<<o>ValidRequest</o>>];
+    Idle -> Req [label=<Valid Request>];
+    Req -> Write_AD [label=<GNT &middot; Write>];
+    Req -> Req [label=<<o>GNT</o>>];
+
+    Write_AD -> Write_DTAD [label=<Ready>];
+    Write_DTAD -> Retract [label=<Retract>];
+    Write_DTAD -> Write_DTAD [label=<<o>Last</o>>];
+    Write_DTAD -> Write_AD_Job_status [label=<ERROR>];
+    Write_DTAD -> Write_DT [label=<Last>];
+    Write_DT -> Retract [label=<Retract>];
+    Retract -> Idle;
+
+    Write_DT -> OK [label=<Ready>];
+    OK -> Idle;
+
+    // Erreurs
+    Write_DT -> Write_AD_Job_status [label=<ERROR>];
+    Write_AD_Job_status -> Write_DT_Error;
+    Write_DT_Error -> Write_DT_Error [label=<Wait>];
+    Write_DT_Error -> Error;
+    Error -> Idle;
+}

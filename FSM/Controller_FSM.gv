@@ -1,0 +1,65 @@
+digraph Controller_FSM {
+    node [shape=circle];
+    
+    Idle [style=filled, fillcolor="#ffffff"];
+
+    Idle -> Idle [label=<PND_LCK + <o>PND_ADR</o>>];
+    Idle -> Req_Lock_PND [label=<<o>PND_LCK</o> &middot; PND_ADR>];
+
+    Req_Lock_PND -> Wait_Lock_PND [label=<1>];
+
+    Wait_Lock_PND -> Wait_Lock_PND [label=<<o>Done</o>>];
+    Wait_Lock_PND -> Req_Lock_PND [label=<Retract>];
+    Wait_Lock_PND -> Idle [label=<Done + <o>RSP_PND_LCK</o>>];
+    Wait_Lock_PND -> Machine_Check [label=<ERROR>];
+    Wait_Lock_PND -> List_Head_Check [label=<Done &middot; RSP_PND_LCK>];
+
+    List_Head_Check -> Req_Job [label=<<o>Empty</o>>];
+    List_Head_Check -> Release_Lock_PND [label=<Empty>];
+    
+    Release_Lock_PND -> Idle;
+
+    Req_Job -> Wait_Job;
+
+    Wait_Job -> Wait_Job [label=<<o>Done</o>>];
+    Wait_Job -> Req_Job [label=<Retract>];
+    Wait_Job -> Machine_Check [label=<ERROR>];
+    Wait_Job -> Req_Read [label=<Done>];
+
+    Req_Read -> Wait_Read;
+
+    Wait_Read -> Wait_Read [label=<<o>Done</o>>];
+    Wait_Read -> Req_Read [label=<Retract>];
+    Wait_Read -> Bus_Error [label=<ERROR>];
+    Wait_Read -> Req_Write [label=<Done>];
+
+    Req_Write -> Wait_Write;
+
+    Wait_Write -> Wait_Write [label=<<o>Done</o>>];
+    Wait_Write -> Req_Write [label=<Retract>];
+    Wait_Write -> Bus_Error [label=<ERROR>];
+    Wait_Write -> Req_Read [label=<Done &middot; <o>ENDSIZE</o>>];
+    Wait_Write -> Wait_Snoopy_Lock_DON [label=<Done &middot; ENDSIZE>];
+
+    Wait_Snoopy_Lock_DON -> Wait_Snoopy_Lock_DON [label=<DON_LCK>];
+    Wait_Snoopy_Lock_DON -> Req_Lock_DON [label=<<o>DON_LCK</o>>];
+
+    Req_Lock_DON -> Wait_Lock_DON;
+
+    Wait_Lock_DON -> Wait_Lock_DON [label=<<o>Done</o>>];
+    Wait_Lock_DON -> Req_Lock_DON [label=<Retract>];
+    Wait_Lock_DON -> Machine_Check [label=<ERROR>];
+    Wait_Lock_DON -> Wait_Snoopy_Lock_DON [label=<Done + <o>RSP_PND_LCK</o>>];
+    Wait_Lock_DON -> Req_Done_Job [label=<Done &middot; RSP_DON_LCK>];
+
+    Req_Done_Job -> Wait_Done_Job;
+
+    Wait_Done_Job -> Wait_Done_Job [label=<<o>Done</o>>];
+    Wait_Done_Job -> Req_Done_Job [label=<Retract>];
+    Wait_Done_Job -> Machine_Check [label=<ERROR>];
+    Wait_Done_Job -> Idle [label=<Done>];
+
+    Bus_Error -> Wait_Snoopy_Lock_DON;
+
+    Machine_Check -> Idle [label=<1>];
+}

@@ -1,0 +1,23 @@
+digraph Interconnect_Release_Lock_FSM {
+    node [shape=circle];
+    
+    Idle [style=filled, fillcolor="#ffffff"];
+    Request [style=filled, fillcolor="#ffffff"];
+
+    Idle -> Idle [label=<<o>Valid_Request</o>>];
+    Idle -> Request [label=<Valid_Request>];
+
+    Request -> Request [label=<<o>GNT</o>>];
+    Request -> Write_AD_Lock [label=<GNT &middot; Release_Lock>];
+
+    Write_AD_Lock -> Write_DT_0;
+
+    Write_DT_0 -> Write_DT_0 [label=<Wait>];
+    Write_DT_0 -> OK [label=<READY>];
+    Write_DT_0 -> Error [label=<ERROR>];
+    Write_DT_0 -> Retract [label=<RETRACT>];
+
+    Error -> Idle;
+    Retract -> Idle;
+    OK -> Idle;
+}

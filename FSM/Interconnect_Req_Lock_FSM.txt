@@ -1,0 +1,28 @@
+color Idle #ffffff
+color Request #ffffff
+
+Idle -> Idle : $\overline{Valid\_Request}$
+Idle -> Request : $Valid\_Request$
+
+Request -> Request : $\overline{GNT}$
+Request -> Read_AD_Lock : $GNT \cdot Req\_Lock$
+Read_AD_Lock -> Read_DT_Lock
+
+Read_DT_Lock -> Read_DT_Lock : $WAIT$
+Read_DT_Lock -> Error : $ERROR$
+Read_DT_Lock -> Retract : $RETRACT$
+Read_DT_Lock -> Check_Lock : $READY$
+
+Check_Lock -> OK : $LCK$
+Check_Lock -> Write_AD_Lock : $\overline{LCK}$
+
+Write_AD_Lock -> Write_DT_Lock
+
+Write_DT_Lock -> Write_DT_Lock : $WAIT$
+Write_DT_Lock -> OK : $READY$
+Write_DT_Lock -> Error : $ERROR$
+Write_DT_Lock -> Retract : $RETRACT$
+
+Error -> Idle
+Retract -> Idle
+OK -> Idle

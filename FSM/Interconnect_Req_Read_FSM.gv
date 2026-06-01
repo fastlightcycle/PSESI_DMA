@@ -1,0 +1,30 @@
+digraph Interconnect_Req_Read_FSM {
+    node [shape=circle];
+    
+    // Définition des couleurs
+    Idle [style=filled, fillcolor="#ffffff"];
+
+    // Transitions
+    Idle -> Idle [label=<<o>ValidRequest</o>>];
+    Idle -> Req [label=<Valid Request>];
+    Req -> Read_AD [label=<GNT &middot; Read>];
+    Req -> Req [label=<<o>GNT</o>>];
+
+    Read_AD -> Read_DTAD [label=<Ready>];
+    Read_DTAD -> Retract [label=<Retract>];
+    Read_DTAD -> Read_DTAD [label=<<o>Last</o>>];
+    Read_DTAD -> Write_AD_Job_status [label=<ERROR>];
+    Read_DTAD -> Read_DT [label=<Last>];
+    Read_DT -> Retract [label=<Retract>];
+    Retract -> Idle;
+
+    Read_DT -> OK [label=<Ready>];
+    OK -> Idle;
+
+    // Erreurs
+    Read_DT -> Write_AD_Job_status [label=<ERROR>];
+    Write_AD_Job_status -> Write_DT_Error;
+    Write_DT_Error -> Write_DT_Error [label=<Wait>];
+    Write_DT_Error -> Error;
+    Error -> Idle;
+}

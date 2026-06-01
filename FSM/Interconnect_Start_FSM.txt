@@ -1,0 +1,13 @@
+color Idle #ffffff
+color Request #ffffff
+
+Idle -> Idle : $\overline{Valid\_Request}$
+Idle -> Request : $Valid\_Request$
+
+Request -> Request : $\overline{GNT}$
+Request -> Req_Lock_FSM : $GNT \cdot Req\_Lock$
+Request -> Release_Lock_FSM: $GNT \cdot Release\_Lock$
+Request -> Read_FSM: $GNT \cdot Read$
+Request -> Write_FSM: $GNT \cdot Write$
+Request -> Read_Get_Job_FSM: $GNT \cdot Get\_Job$
+Request -> Write_AD_JobPrec: $GNT \cdot Done\_Job$

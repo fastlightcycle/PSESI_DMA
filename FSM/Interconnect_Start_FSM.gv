@@ -1,0 +1,19 @@
+digraph Interconnect_Start_FSM {
+    node [shape=circle];
+    
+    Idle [style=filled, fillcolor="#ffffff"];
+    Request [style=filled, fillcolor="#ffffff"];
+
+    Idle -> Idle [label=<<o>Valid_Request</o>>];
+    Idle -> Request [label=<Valid_Request>];
+
+    Request -> Request [label=<<o>GNT</o>>];
+    Request -> Req_Lock_FSM [label=<GNT &middot; Req_Lock>];
+    Request -> Release_Lock_FSM [label=<GNT &middot; Release_Lock>];
+    Request -> Read_FSM [label=<GNT &middot; Read>];
+    Request -> Write_FSM [label=<GNT &middot; Write>];
+    Request -> Read_Get_Job_FSM [label=<GNT &middot; Get_Job>];
+    Request -> Write_AD_JobPrec [label=<GNT &middot; Done_Job>];
+
+    overlap=false
+}

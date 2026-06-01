@@ -1,0 +1,56 @@
+color Idle #ffffff
+color Request #ffffff
+
+Idle -> Idle : $\overline{Valid\_Request}$
+Idle -> Request : $Valid\_Request$
+
+Request -> Request : $\overline{GNT}$
+Request -> Read_AD_PND_next: $GNT \cdot Get\_Job$
+
+Read_AD_PND_next -> Read_DT_PND_next_AD_PND_prev
+
+Read_DT_PND_next_AD_PND_prev -> Read_DT_PND_next_AD_PND_prev : $WAIT$
+Read_DT_PND_next_AD_PND_prev -> Read_DT_PND_prev: $READY$
+Read_DT_PND_next_AD_PND_prev -> Error : $ERROR$
+Read_DT_PND_next_AD_PND_prev -> Retract : $RETRACT$
+
+Read_DT_PND_prev -> Read_DT_PND_prev : $WAIT$
+Read_DT_PND_prev -> Compare_next_prev : $READY$
+Read_DT_PND_prev -> Error : $ERROR$
+Read_DT_PND_prev -> Retract : $RETRACT$
+
+Compare_next_prev -> Write_AD_PND : $Same$
+Compare_next_prev -> Write_AD_PND_prev_next : $\overline{Same}$
+
+Write_AD_PND -> Write_DT_NULL_AD_PND_Lock
+
+Write_DT_NULL_AD_PND_Lock -> Write_DT_NULL_AD_PND_Lock : $WAIT$
+Write_DT_NULL_AD_PND_Lock -> Write_DT_0 : $READY$
+Write_DT_NULL_AD_PND_Lock -> Error : $ERROR$
+Write_DT_NULL_AD_PND_Lock -> Retract : $RETRACT$
+
+Write_AD_PND_prev_next -> Write_DT_next_AD_PND_next_prev
+
+Write_DT_next_AD_PND_next_prev -> Write_DT_next_AD_PND_next_prev : $WAIT$
+Write_DT_next_AD_PND_next_prev -> Write_DT_prev_AD_PND : $READY$
+Write_DT_next_AD_PND_next_prev -> Error : $ERROR$
+Write_DT_next_AD_PND_next_prev -> Retract : $RETRACT$
+
+Write_DT_prev_AD_PND -> Write_DT_prev_AD_PND : $WAIT$
+Write_DT_prev_AD_PND -> Write_DT_next_AD_PND_Lock : $READY$
+Write_DT_prev_AD_PND -> Error : $ERROR$
+Write_DT_prev_AD_PND -> Retract : $RETRACT$
+
+Write_DT_next_AD_PND_Lock -> Write_DT_next_AD_PND_Lock : $WAIT$
+Write_DT_next_AD_PND_Lock -> Write_DT_0 : $READY$
+Write_DT_next_AD_PND_Lock -> Error : $ERROR$
+Write_DT_next_AD_PND_Lock -> Retract : $RETRACT$
+
+Write_DT_0 -> Write_DT_0 : $WAIT$
+Write_DT_0 -> OK : $READY$
+Write_DT_0 -> Error : $ERROR$
+Write_DT_0 -> Retract : $RETRACT$
+
+Error -> Idle
+Retract -> Idle
+OK -> Idle

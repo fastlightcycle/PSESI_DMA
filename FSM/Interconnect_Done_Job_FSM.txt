@@ -1,0 +1,55 @@
+color Idle #ffffff
+color Request #ffffff
+
+Idle -> Idle : $\overline{Valid\_Request}$
+Idle -> Request : $Valid\_Request$
+
+Request -> Request : $\overline{GNT}$
+Request -> Write_AD_Job_prev: $GNT \cdot Done\_Job$
+
+Write_AD_Job_prev -> Write_AD_Job_next_DT_NULL : $Done\_Empty$
+Write_AD_Job_prev -> Write_DT_DON_prev_AD_DON_prev_next : $\overline{Done\_Empty}$
+
+Write_DT_DON_prev_AD_DON_prev_next -> Write_DT_DON_prev_AD_DON_prev_next: $WAIT$
+Write_DT_DON_prev_AD_DON_prev_next -> Write_DT_Job_AD_Don_prev : $READY$
+Write_DT_DON_prev_AD_DON_prev_next -> Error : $ERROR$
+Write_DT_DON_prev_AD_DON_prev_next -> Retract: $RETRACT$
+
+Write_DT_Job_AD_Don_prev -> Write_DT_Job_AD_Don_prev : $WAIT$
+Write_DT_Job_AD_Don_prev -> Write_DT_Job_AD_Job_Next : $READY$
+Write_DT_Job_AD_Don_prev -> Error : $ERROR$
+Write_DT_Job_AD_Don_prev -> Retract: $RETRACT$
+
+Write_DT_Job_AD_Job_Next -> Write_DT_Job_AD_Job_Next : $WAIT$
+Write_DT_Job_AD_Job_Next -> Write_DT_DON_AD_DON : $READY$
+Write_DT_Job_AD_Job_Next -> Error : $ERROR$
+Write_DT_Job_AD_Job_Next -> Retract: $RETRACT$
+
+Write_AD_Job_next_DT_NULL -> Write_AD_Job_next_DT_NULL : $WAIT$
+Write_AD_Job_next_DT_NULL -> Write_DT_DON_AD_DON : $READY$
+Write_AD_Job_next_DT_NULL -> Error : $ERROR$
+Write_AD_Job_next_DT_NULL -> Retract: $RETRACT$
+
+Write_DT_DON_AD_DON -> Write_DT_DON_AD_DON : $WAIT$
+Write_DT_DON_AD_DON -> Write_DT_Job_AD_Job_status : $READY$
+Write_DT_DON_AD_DON -> Error : $ERROR$
+Write_DT_DON_AD_DON -> Retract: $RETRACT$
+
+Write_DT_Job_AD_Job_status -> Write_DT_Job_AD_Job_status : $WAIT$
+Write_DT_Job_AD_Job_status -> Write_DT_Done_AD_DON_LCK : $READY$
+Write_DT_Job_AD_Job_status -> Error : $ERROR$
+Write_DT_Job_AD_Job_status -> Retract: $RETRACT$
+
+Write_DT_Done_AD_DON_LCK -> Write_DT_Done_AD_DON_LCK : $WAIT$
+Write_DT_Done_AD_DON_LCK -> Write_DT_0 : $READY$
+Write_DT_Done_AD_DON_LCK -> Error : $ERROR$
+Write_DT_Done_AD_DON_LCK -> Retract: $RETRACT$
+
+Write_DT_0 -> Write_DT_0 : $WAIT$
+Write_DT_0 -> OK : $READY$
+Write_DT_0 -> Error : $ERROR$
+Write_DT_0 -> Retract: $RETRACT$
+
+Error -> Idle
+Retract -> Idle
+OK -> Idle
